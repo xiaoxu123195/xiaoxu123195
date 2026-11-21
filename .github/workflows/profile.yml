@@ -1,0 +1,58 @@
+name: Update profile cards
+
+on:
+  # 每天 UTC 02:00（北京时间 10:00）自动跑一次
+  schedule:
+    - cron: "0 2 * * *"
+  # 支持在 Actions 页面手动触发
+  workflow_dispatch:
+  # main 分支有推送时也跑一次
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Generate snake (light + dark)
+        uses: Platane/snk/svg-only@v3
+        with:
+          github_user_name: ${{ github.repository_owner }}
+          outputs: |
+            dist/github-contribution-grid-snake.svg
+            dist/github-contribution-grid-snake-dark.svg?palette=github-dark
+
+      # fail_on_error: 拉数据失败（比如限流）时直接让任务失败，
+      # 这样不会把 "Something went wrong" 错误卡片发布出去，output 分支保留上一次的图
+      - name: Generate stats card (light)
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: stats
+          options: username=${{ github.repository_owner }}&locale=cn&show_icons=true&hide_border=true&hide=issues,contribs&bg_color=ffffff00&title_color=4F46E5&icon_color=06B6D4&text_color=1F2328&ring_color=6366F1
+          path: dist/stats.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: "true"
+
+      - name: Generate stats card (dark)
+        uses: stats-organization/github-readme-stats-action@v2
+        with:
+          card: stats
+          options: username=${{ github.repository_owner }}&locale=cn&show_icons=true&hide_border=true&hide=issues,contribs&bg_color=ffffff00&title_color=A5B4FC&icon_color=22D3EE&text_color=C9D1D9&ring_color=818CF8
+          path: dist/stats-dark.svg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fail_on_error: "true"
+
+      # 把 dist/ 推到 output 分支，README 从 raw.githubusercontent.com 引用
+      - name: Publish to output branch
+        uses: crazy-max/ghaction-github-pages@v4
+        with:
+          target_branch: output
+          build_dir: dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
